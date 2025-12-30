@@ -15,6 +15,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.JokiTugas">
         <activity
+            android:name=".AdminActivity"
+            android:exported="false" />
+        <activity
             android:name=".PromoDetailActivity"
             android:exported="false" />
         <activity

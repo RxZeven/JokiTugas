@@ -45,7 +45,7 @@
             app:layout_constraintTop_toTopOf="@id/iconContainer" />
 
         <TextView
-            android:id="@+id/tvDate"
+            android:id="@+id/tvDeadline"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
@@ -67,7 +67,7 @@
             android:textStyle="bold"
             android:textSize="14sp"
             app:layout_constraintStart_toEndOf="@id/iconContainer"
-            app:layout_constraintTop_toBottomOf="@id/tvDate" />
+            app:layout_constraintTop_toBottomOf="@id/tvDeadline" />
         <TextView
             android:id="@+id/tvStatus"
             android:layout_width="wrap_content"

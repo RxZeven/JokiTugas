@@ -7,23 +7,32 @@ import android.os.Bundle
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.OvershootInterpolator
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.kelompok.jokitugas.databinding.ActivityPaymentBinding
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import java.util.UUID
 
 class PaymentActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityPaymentBinding
+    private lateinit var db: FirebaseFirestore
+    private lateinit var auth: FirebaseAuth
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityPaymentBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        db = FirebaseFirestore.getInstance()
+        auth = FirebaseAuth.getInstance()
 
         // 1. Ambil Data dari Intent
         val serviceName = intent.getStringExtra("EXTRA_SERVICE") ?: "-"
@@ -122,23 +131,76 @@ class PaymentActivity : AppCompatActivity() {
                 val service = binding.tvServiceName.text.toString()
                 val deadlineInfo = binding.tvDateInfo.text.toString()
                 val price = binding.tvTotalPrice.text.toString() // Ambil "Rp 450.000"
+                val notes = binding.tvNotes.text.toString()
+                val specs = binding.tvSpecs.text.toString() // Ambil "Fitur Lengkap..."
+                
+                val orderId = UUID.randomUUID().toString()
+                val paymentId = "PAY-${UUID.randomUUID()}" // ID Khusus Pembayaran
+                val userId = auth.currentUser?.uid ?: "guest"
+                val currentTime = System.currentTimeMillis()
 
-                // 2. SIMPAN KE DATABASE SEMENTARA
+                // 2. SIMPAN KE DATABASE SEMENTARA (Agar muncul di list lokal)
                 val newOrder = OrderModel(
+                    id = orderId,
                     serviceName = service,
                     deadline = deadlineInfo,
                     price = price,
-                    status = "Diproses" // Status awal setelah bayar
+                    status = "Diproses"
                 )
-                DummyData.orderHistory.add(newOrder) // Masukkan ke List
+                DummyData.orderHistory.add(newOrder)
 
-                // 3. PINDAH KE MAIN ACTIVITY
-                val intent = Intent(this, MainActivity::class.java)
-                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                startActivity(intent)
-                finish()
+                // 3. DATA PESANAN (ORDER)
+                val orderMap = hashMapOf(
+                    "id" to orderId,
+                    "serviceTitle" to service, 
+                    "deadline" to deadlineInfo,
+                    "price" to price,
+                    "status" to "Diproses",
+                    "notes" to notes,
+                    "specs" to specs, 
+                    "paymentMethod" to "QRIS / Transfer",
+                    "userId" to userId,
+                    "createdAt" to currentTime
+                )
+
+                // 4. DATA PEMBAYARAN / STRUK (PAYMENT) - DIPISAH SESUAI PERMINTAAN
+                val paymentMap = hashMapOf(
+                    "paymentId" to paymentId,
+                    "orderId" to orderId, // Relasi ke pesanan
+                    "userId" to userId,
+                    "amount" to price,
+                    "paymentMethod" to "QRIS / Transfer",
+                    "transactionDate" to currentTime,
+                    "status" to "LUNAS", // Status pembayaran
+                    "details" to "$service ($specs)" // Ringkasan apa yang dibayar
+                )
+                
+                binding.btnFinishOrder.isEnabled = false
+                binding.btnFinishOrder.text = "Menyimpan..."
+
+                // Batch Write: Simpan ke dua koleksi sekaligus
+                val batch = db.batch()
+                
+                val orderRef = db.collection("orders").document(orderId)
+                batch.set(orderRef, orderMap)
+
+                val paymentRef = db.collection("payments").document(paymentId)
+                batch.set(paymentRef, paymentMap)
+
+                batch.commit()
+                    .addOnSuccessListener {
+                        // 5. PINDAH KE MAIN ACTIVITY
+                        val intent = Intent(this, MainActivity::class.java)
+                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        startActivity(intent)
+                        finish()
+                    }
+                    .addOnFailureListener { e ->
+                        binding.btnFinishOrder.isEnabled = true
+                        binding.btnFinishOrder.text = "Selesai"
+                        Toast.makeText(this, "Gagal menyimpan ke Firebase: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
             }
-            // Nanti di sini logika simpan ke Firebase
         }
     }
 

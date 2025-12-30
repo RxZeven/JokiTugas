@@ -4,8 +4,14 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.kelompok.jokitugas.databinding.ActivityRegisterBinding
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+
 
 class RegisterActivity : AppCompatActivity() {
+
+    private lateinit var auth: FirebaseAuth
+    private lateinit var db: FirebaseFirestore
 
     private lateinit var binding: ActivityRegisterBinding
 
@@ -13,6 +19,10 @@ class RegisterActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityRegisterBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        auth = FirebaseAuth.getInstance()
+        db = FirebaseFirestore.getInstance()
+
 
         setupListeners()
     }
@@ -50,8 +60,35 @@ class RegisterActivity : AppCompatActivity() {
             }
 
             // Jika lolos validasi
-            Toast.makeText(this, "Registration logic here for $name", Toast.LENGTH_SHORT).show()
-            // Di sini nanti tempat kita taruh kode Firebase Register
+            auth.createUserWithEmailAndPassword(email, password)
+                .addOnSuccessListener { result ->
+
+                    val uid = result.user!!.uid
+
+                    val userData = hashMapOf(
+                        "uid" to uid,
+                        "name" to name,
+                        "email" to email,
+                        "role" to "user",
+                        "createdAt" to System.currentTimeMillis()
+                    )
+
+                    // Simpan ke Firestore
+                    db.collection("users")
+                        .document(uid)
+                        .set(userData)
+                        .addOnSuccessListener {
+                            Toast.makeText(this, "Registration successful", Toast.LENGTH_SHORT).show()
+                            finish() // Kembali ke Login
+                        }
+                        .addOnFailureListener {
+                            Toast.makeText(this, "Failed to save user data", Toast.LENGTH_SHORT).show()
+                        }
+                }
+                .addOnFailureListener {
+                    Toast.makeText(this, it.message, Toast.LENGTH_SHORT).show()
+                }
+
         }
     }
 }

@@ -7,8 +7,12 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.kelompok.jokitugas.databinding.ActivityJokiOrderBinding
 import com.kelompok.jokitugas.databinding.ItemJokiExpandableBinding
+import com.google.firebase.auth.FirebaseAuth
+
 
 class JokiOrderActivity : AppCompatActivity() {
+
+    private lateinit var auth: FirebaseAuth
 
     private lateinit var binding: ActivityJokiOrderBinding
 
@@ -16,6 +20,14 @@ class JokiOrderActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityJokiOrderBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        auth = FirebaseAuth.getInstance()
+
+        if (auth.currentUser == null) {
+            startActivity(Intent(this, LoginActivity::class.java))
+            finish()
+        }
+
 
         setupUI()
     }
@@ -113,6 +125,8 @@ class JokiOrderActivity : AppCompatActivity() {
             // TITIP DATA (Passing Data)
             intent.putExtra("EXTRA_TITLE", title)
             intent.putExtra("EXTRA_DESC", description)
+            intent.putExtra("EXTRA_USER_ID", auth.currentUser?.uid)
+
 
             startActivity(intent)
         }

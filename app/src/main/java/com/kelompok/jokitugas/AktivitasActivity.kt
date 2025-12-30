@@ -5,83 +5,121 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.kelompok.jokitugas.databinding.ActivityAktivitasBinding
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 class AktivitasActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityAktivitasBinding
+    private lateinit var db: FirebaseFirestore
+    private lateinit var auth: FirebaseAuth
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityAktivitasBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        db = FirebaseFirestore.getInstance()
+        auth = FirebaseAuth.getInstance()
+
         setupListeners()
     }
 
-    // Gunakan onResume agar setiap kali halaman ini dibuka, data direfresh
     override fun onResume() {
         super.onResume()
-        loadOrders()
+        // Kita panggil loadOrdersFromFirebase alih-alih local DummyData
+        loadOrdersFromFirebase()
     }
 
-    private fun loadOrders() {
-        // 1. Bersihkan wadah dulu agar tidak duplikat
-        binding.containerOrders.removeAllViews()
+    private fun loadOrdersFromFirebase() {
+        val userId = auth.currentUser?.uid
 
-        // 2. Cek apakah ada data di DummyData
-        val orders = DummyData.orderHistory
-
-        if (orders.isEmpty()) {
-            // Tampilkan teks kosong
+        if (userId == null) {
+            // User belum login
+            binding.tvEmptyState.text = "Silakan login untuk melihat pesanan"
             binding.tvEmptyState.visibility = View.VISIBLE
             binding.containerOrders.visibility = View.GONE
-        } else {
-            // Sembunyikan teks kosong
-            binding.tvEmptyState.visibility = View.GONE
-            binding.containerOrders.visibility = View.VISIBLE
-
-            // 3. Loop data dari 'Database' dan tampilkan
-            // Kita balik urutannya (reversed) agar pesanan terbaru muncul paling atas
-            orders.reversed().forEach { order ->
-                addOrderCard(order)
-            }
+            return
         }
+
+        binding.containerOrders.removeAllViews()
+
+        // Ambil data dari Firestore
+        db.collection("orders")
+            .whereEqualTo("userId", userId) // Hanya ambil pesanan milik user ini
+            // Jika ingin urut berdasarkan tanggal, pastikan createdAt ada
+            // .orderBy("createdAt", Query.Direction.DESCENDING) 
+            .get()
+            .addOnSuccessListener { documents ->
+                if (documents.isEmpty) {
+                    binding.tvEmptyState.visibility = View.VISIBLE
+                    binding.containerOrders.visibility = View.GONE
+                } else {
+                    binding.tvEmptyState.visibility = View.GONE
+                    binding.containerOrders.visibility = View.VISIBLE
+
+                    for (document in documents) {
+                        val serviceName = document.getString("serviceTitle") ?: "Layanan"
+                        val specs = document.getString("specs") ?: "" // Ambil detail specs juga
+                        
+                        // Gabungkan Nama Layanan + Sedikit Detail (biar tidak bingung)
+                        // Contoh: "Joki Coding (Python, Web)"
+                        val displayName = if (specs.isNotEmpty()) {
+                             // Ambil kata pertama dari specs sebagai hint, atau tampilkan specs singkat
+                             // Misalnya specs: "Python, Web, Machine Learning"
+                             // Kita ambil "Python..."
+                             val shortSpec = specs.split(",")[0].trim()
+                             "$serviceName ($shortSpec)"
+                        } else {
+                            serviceName
+                        }
+
+                        val order = OrderModel(
+                            id = document.getString("id") ?: document.id,
+                            serviceName = displayName, // Pakai nama yang sudah digabung
+                            deadline = document.getString("deadline") ?: "-",
+                            price = document.getString("price") ?: "-",
+                            status = document.getString("status") ?: "Diproses"
+                        )
+                        addOrderCard(order)
+                    }
+                }
+            }
+            .addOnFailureListener { exception ->
+                Toast.makeText(this, "Gagal memuat data: ${exception.message}", Toast.LENGTH_SHORT).show()
+                binding.tvEmptyState.text = "Gagal memuat data."
+                binding.tvEmptyState.visibility = View.VISIBLE
+            }
     }
 
     private fun addOrderCard(order: OrderModel) {
         val cardView = LayoutInflater.from(this).inflate(R.layout.item_order_card, binding.containerOrders, false)
 
         val tvName = cardView.findViewById<TextView>(R.id.tvServiceName)
-        val tvDate = cardView.findViewById<TextView>(R.id.tvDate)
-        val tvPrice = cardView.findViewById<TextView>(R.id.tvPrice) // View Baru
+        val tvDate = cardView.findViewById<TextView>(R.id.tvDeadline)
+        val tvPrice = cardView.findViewById<TextView>(R.id.tvPrice)
         val tvStatus = cardView.findViewById<TextView>(R.id.tvStatus)
         val btnDetail = cardView.findViewById<TextView>(R.id.btnDetail)
 
-        // Set Data
         tvName.text = order.serviceName
         tvDate.text = order.deadline
-        tvPrice.text = order.price // Menampilkan Harga!
+        tvPrice.text = order.price
         tvStatus.text = order.status
 
         btnDetail.setOnClickListener {
             val intent = Intent(this, OrderDetailActivity::class.java)
-
-            // Kirim Data ke Halaman Detail
-            intent.putExtra("EXTRA_SERVICE", order.serviceName)
-            intent.putExtra("EXTRA_DEADLINE", order.deadline)
-            intent.putExtra("EXTRA_PRICE", order.price)
-            intent.putExtra("EXTRA_STATUS", order.status)
-
+            intent.putExtra("EXTRA_ORDER_ID", order.id)
             startActivity(intent)
         }
 
         binding.containerOrders.addView(cardView)
     }
 
+
     private fun setupListeners() {
-        // ... (Kode Listener Nav Bar sama seperti sebelumnya) ...
         binding.btnBack.setOnClickListener {
             startActivity(Intent(this, MainActivity::class.java))
             finish()

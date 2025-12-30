@@ -5,9 +5,14 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.kelompok.jokitugas.databinding.ActivityOrderDetailBinding
+import com.google.firebase.firestore.FirebaseFirestore
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class OrderDetailActivity : AppCompatActivity() {
 
+    private lateinit var db: FirebaseFirestore
     private lateinit var binding: ActivityOrderDetailBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -15,31 +20,27 @@ class OrderDetailActivity : AppCompatActivity() {
         binding = ActivityOrderDetailBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // 1. Ambil Data dari Intent
-        val serviceName = intent.getStringExtra("EXTRA_SERVICE") ?: "-"
-        val deadline = intent.getStringExtra("EXTRA_DEADLINE") ?: "-"
-        val price = intent.getStringExtra("EXTRA_PRICE") ?: "-"
-        val status = intent.getStringExtra("EXTRA_STATUS") ?: "-"
+        db = FirebaseFirestore.getInstance()
 
-        // Data Dummy untuk specs (karena di list aktivitas tadi kita blm simpan detail speknya)
-        // Nanti bisa diambil dari object OrderModel kalau sudah lengkap
-        val specs = "• Fitur Lengkap\n• Garansi Revisi\n• Termasuk Source Code"
+        val orderId = intent.getStringExtra("EXTRA_ORDER_ID")
 
-        // 2. Set Data ke UI
-        binding.tvDetailServiceName.text = serviceName
-        binding.tvDetailDeadline.text = deadline
-        binding.tvDetailPrice.text = price
-        binding.tvDetailStatus.text = status
-        binding.tvDetailSpecs.text = specs
+        if (orderId == null) {
+            Toast.makeText(this, "Order not found", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
 
         setupListeners()
+        loadOrderDetail(orderId)
     }
 
     private fun setupListeners() {
         // Back Button
         binding.btnBack.setOnClickListener {
-            finish() // Kembali ke AktivitasActivity
+            finish()
         }
+        
+        // Profile Button
         binding.ivProfile.setOnClickListener {
             startActivity(Intent(this, ProfileActivity::class.java))
         }
@@ -58,11 +59,66 @@ class OrderDetailActivity : AppCompatActivity() {
         }
 
         binding.menuActivity.setOnClickListener {
+            // Sudah di halaman yang relevan (konteks aktivitas), refresh atau stay
             startActivity(Intent(this, AktivitasActivity::class.java))
+            finish()
         }
 
         binding.menuChat.setOnClickListener {
             startActivity(Intent(this, ChatActivity::class.java))
         }
+    }
+
+    private fun loadOrderDetail(orderId: String) {
+        db.collection("orders")
+            .document(orderId)
+            .get()
+            .addOnSuccessListener { doc ->
+                if (doc.exists()) {
+                    // 1. Data Utama
+                    binding.tvDetailServiceName.text = doc.getString("serviceTitle")
+                    binding.tvDetailDeadline.text = doc.getString("deadline")
+                    binding.tvDetailPrice.text = doc.getString("price")
+                    binding.tvDetailStatus.text = doc.getString("status")
+
+                    // 2. Spesifikasi (Specs)
+                    val specs = doc.getString("specs")
+                    if (!specs.isNullOrEmpty()) {
+                        binding.tvDetailSpecs.text = specs
+                    } else {
+                        binding.tvDetailSpecs.text = "• Fitur Lengkap\n• Garansi Revisi\n• Termasuk Source Code"
+                    }
+
+                    // 3. Catatan (Notes)
+                    val notes = doc.getString("notes")
+                    if (!notes.isNullOrEmpty()) {
+                        binding.tvDetailNotes.text = notes
+                    } else {
+                        binding.tvDetailNotes.text = "-"
+                    }
+
+                    // 4. Metode Pembayaran
+                    val paymentMethod = doc.getString("paymentMethod")
+                    if (!paymentMethod.isNullOrEmpty()) {
+                        binding.tvDetailPaymentMethod.text = paymentMethod
+                    } else {
+                        binding.tvDetailPaymentMethod.text = "QRIS / Transfer"
+                    }
+
+                    // 5. Tanggal Pembayaran
+                    val timestamp = doc.getLong("createdAt")
+                    if (timestamp != null) {
+                        val date = Date(timestamp)
+                        // Format contoh: 21 Des 2025, 15:30
+                        val format = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID"))
+                        binding.tvDetailDate.text = format.format(date)
+                    } else {
+                        binding.tvDetailDate.text = "-"
+                    }
+                }
+            }
+            .addOnFailureListener {
+                Toast.makeText(this, "Gagal memuat detail pesanan", Toast.LENGTH_SHORT).show()
+            }
     }
 }

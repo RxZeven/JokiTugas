@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "992242004996",
+    "project_id": "jokitugasdb-de4f8",
+    "storage_bucket": "jokitugasdb-de4f8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:992242004996:android:9311b37ca93a659c073151",
+        "android_client_info": {
+          "package_name": "com.kelompok.jokitugas"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBlPTJtdstGg_Bp0i6Y57Unrtr2R7Z8BYk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
