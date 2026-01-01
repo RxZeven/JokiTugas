@@ -8,6 +8,7 @@
     android:background="@color/white"
     android:clipChildren="false">
 
+    <!-- HEADER -->
     <LinearLayout
         android:id="@+id/headerContainer"
         android:layout_width="match_parent"
@@ -59,12 +60,13 @@
         </androidx.cardview.widget.CardView>
     </LinearLayout>
 
+    <!-- KONTEN CHAT LIST -->
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:fillViewport="true"
-        app:layout_constraintBottom_toTopOf="@id/bottomNavContainer"
-        app:layout_constraintTop_toBottomOf="@id/headerContainer">
+        app:layout_constraintTop_toBottomOf="@id/headerContainer"
+        app:layout_constraintBottom_toTopOf="@+id/bottomNavContainer">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -89,11 +91,28 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
+                <!-- Item Chat akan ditambahkan dinamis lewat Kotlin -->
             </LinearLayout>
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
+    <!-- TOMBOL TAMBAH CHAT (FAB) -->
+    <!-- Diletakkan SEBELUM BottomNav agar z-order aman, dan constraint merujuk ke BottomNav -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabNewChat"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="24dp"
+        android:src="@android:drawable/ic_input_add"
+        android:contentDescription="New Chat"
+        app:tint="@color/white"
+        app:backgroundTint="@color/app_primary"
+        app:layout_constraintBottom_toTopOf="@+id/bottomNavContainer"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- NAVIGASI BAWAH -->
     <LinearLayout
         android:id="@+id/bottomNavContainer"
         android:layout_width="match_parent"
@@ -198,18 +217,5 @@
         </LinearLayout>
 
     </LinearLayout>
-
-    <!-- INI TOMBOL FAB YANG HILANG (Ditaruh paling bawah agar menimpa yang lain) -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabNewChat"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="24dp"
-        android:src="@android:drawable/ic_input_add"
-        android:contentDescription="New Chat"
-        app:tint="@color/white"
-        app:backgroundTint="@color/app_primary"
-        app:layout_constraintBottom_toTopOf="@+id/bottomNavContainer"
-        app:layout_constraintEnd_toEndOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

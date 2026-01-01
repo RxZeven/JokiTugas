@@ -1,6 +1,5 @@
 package com.kelompok.jokitugas
 
-import android.content.Intent
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -28,13 +27,14 @@ class ChatRoomActivity : AppCompatActivity() {
     
     private var chatId: String = ""
     private var otherName: String = "Admin"
-    private var currentUserName: String = "User" 
+    private var currentUserName: String = "User"
     private var listenerRegistration: ListenerRegistration? = null
     
     // AI Chatbot
+    // Mengganti model ke gemini-pro agar lebih stabil
     private val generativeModel = GenerativeModel(
-        modelName = "gemini-1.5-flash", 
-        apiKey = "AIzaSyAwVymNGzryjxL9HYrLxKbxfO8d_AoQA1g" 
+        modelName = "gemini-pro", 
+        apiKey = "AIzaSyDU6Wj_ZuCRevahzBOhxnzl_g83H9mq9UI"
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,7 +58,7 @@ class ChatRoomActivity : AppCompatActivity() {
             if (uid != null) {
                 chatId = "chat_$uid"
                 listenToMessages()
-                fetchCurrentUserName() 
+                fetchCurrentUserName()
             }
         }
 
@@ -86,24 +86,21 @@ class ChatRoomActivity : AppCompatActivity() {
         binding.btnSend.setOnClickListener {
             val message = binding.etMessage.text.toString().trim()
             if (message.isNotEmpty()) {
-                sendMessage(message)
+                sendMessage(message, "text")
                 binding.etMessage.setText("")
                 
-                // Logic Sederhana: Setiap user kirim pesan, AI balas.
                 replyWithAI(message)
             }
         }
-        
-        // Tombol foto dihapus atau dibuat toast saja
+
         binding.btnAddPhoto.setOnClickListener {
-            Toast.makeText(this, "Fitur kirim foto dinonaktifkan", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Fitur upload gambar dinonaktifkan sementara.", Toast.LENGTH_SHORT).show()
         }
     }
     
     private fun replyWithAI(userMessage: String) {
         lifecycleScope.launch {
             try {
-                // Konteks Persona AI
                 val prompt = "Kamu adalah Admin Joki Tugas yang ramah dan profesional bernama Kang Coding. " +
                         "Jawablah pertanyaan user ini dengan singkat dan membantu: \"$userMessage\""
                 
@@ -112,23 +109,27 @@ class ChatRoomActivity : AppCompatActivity() {
                 }
                 val aiReply = response.text ?: "Maaf, saya sedang sibuk. Mohon tunggu sebentar."
                 
-                // Simpan balasan AI ke Firestore seolah-olah itu pesan dari Admin
                 sendAdminMessage(aiReply)
                 
             } catch (e: Exception) {
                 e.printStackTrace()
-                sendAdminMessage("Maaf, server AI sedang gangguan. Silakan tunggu admin manusia.")
+                // Menyederhanakan pesan error untuk user
+                val errorMessage = if (e.message?.contains("404") == true) {
+                    "Maaf, layanan AI sedang gangguan. (Model not found)"
+                } else {
+                    "Maaf, saya sedang tidak bisa menjawab saat ini."
+                }
+                sendAdminMessage(errorMessage)
             }
         }
     }
     
-    // Fungsi khusus untuk menyimpan pesan AI sebagai 'admin'
     private fun sendAdminMessage(message: String) {
         val messageMap = hashMapOf(
-            "senderId" to "admin_bot", // ID palsu untuk bot
+            "senderId" to "admin_bot",
             "text" to message,
             "type" to "text",
-            "timestamp" to System.currentTimeMillis() + 100 // Tambah dikit biar muncul setelah user
+            "timestamp" to System.currentTimeMillis() + 100
         )
         
         db.collection("chats").document(chatId).collection("messages")
@@ -143,25 +144,28 @@ class ChatRoomActivity : AppCompatActivity() {
         db.collection("chats").document(chatId).set(chatMeta, com.google.firebase.firestore.SetOptions.merge())
     }
 
-    private fun sendMessage(content: String) {
+    private fun sendMessage(content: String, type: String) {
         val uid = auth.currentUser?.uid ?: return
         
         val messageMap = hashMapOf(
             "senderId" to uid,
             "text" to content,
-            "type" to "text",
+            "type" to type,
             "timestamp" to System.currentTimeMillis()
         )
         
         db.collection("chats").document(chatId).collection("messages")
             .add(messageMap)
             
+        val lastMsgPreview = if (type == "image") "📷 [Gambar]" else content
+        
         val chatMeta = hashMapOf(
-            "lastMessage" to content,
+            "lastMessage" to lastMsgPreview,
             "lastTime" to System.currentTimeMillis(),
             "participants" to listOf(uid, "admin"),
             "userName" to currentUserName 
         )
+        
         db.collection("chats").document(chatId).set(chatMeta, com.google.firebase.firestore.SetOptions.merge()) 
     }
 
@@ -180,14 +184,15 @@ class ChatRoomActivity : AppCompatActivity() {
                     for (doc in snapshots) {
                         val content = doc.getString("text") ?: ""
                         val sender = doc.getString("senderId") ?: ""
-                        
-                        // Abaikan pesan tipe image jika ada sisa data lama
                         val type = doc.getString("type") ?: "text"
-                        if (type == "image") continue
                         
-                        // Cek apakah pesan dari saya atau dari (Admin / Bot)
                         val isMe = (sender == currentUid)
-                        addChatBubble(content, isMe)
+                        
+                        if (type == "image") {
+                            addChatBubble("[Gambar]", isMe)
+                        } else {
+                            addChatBubble(content, isMe)
+                        }
                     }
                 }
             }

@@ -38,20 +38,17 @@ class OrderDetailActivity : AppCompatActivity() {
         // Back Button
         binding.btnBack.setOnClickListener {
             finish()
-            overridePendingTransition(0, 0)
         }
         
         // Profile Button
         binding.ivProfile.setOnClickListener {
             startActivity(Intent(this, ProfileActivity::class.java))
-            overridePendingTransition(0, 0)
         }
 
         // Chat Button
         binding.btnChatJoki.setOnClickListener {
             val intent = Intent(this, ChatRoomActivity::class.java)
             startActivity(intent)
-            overridePendingTransition(0, 0)
         }
 
         // Bottom Nav Logic
@@ -59,19 +56,16 @@ class OrderDetailActivity : AppCompatActivity() {
             val intent = Intent(this, MainActivity::class.java)
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             startActivity(intent)
-            overridePendingTransition(0, 0)
         }
 
         binding.menuActivity.setOnClickListener {
             // Sudah di halaman yang relevan (konteks aktivitas), refresh atau stay
             startActivity(Intent(this, AktivitasActivity::class.java))
             finish()
-            overridePendingTransition(0, 0)
         }
 
         binding.menuChat.setOnClickListener {
             startActivity(Intent(this, ChatActivity::class.java))
-            overridePendingTransition(0, 0)
         }
     }
 

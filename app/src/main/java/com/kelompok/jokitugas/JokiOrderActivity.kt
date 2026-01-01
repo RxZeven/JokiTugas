@@ -25,7 +25,6 @@ class JokiOrderActivity : AppCompatActivity() {
 
         if (auth.currentUser == null) {
             startActivity(Intent(this, LoginActivity::class.java))
-            overridePendingTransition(0, 0)
             finish()
         }
 
@@ -37,26 +36,20 @@ class JokiOrderActivity : AppCompatActivity() {
         // 1. Tombol Back dan Profile
         binding.btnBack.setOnClickListener {
             finish() // Kembali ke MainActivity
-            overridePendingTransition(0, 0)
         }
 
         binding.ivProfile.setOnClickListener {
             startActivity(Intent(this, ProfileActivity::class.java))
-            overridePendingTransition(0, 0)
         }
 
         // 2. Setup Nav Bar (Hanya Dummy Klik)
         binding.menuHome.setOnClickListener {
-            finish() // Balik ke Home
-            overridePendingTransition(0, 0)
-        }
+            finish() } // Balik ke Home
         binding.menuChat.setOnClickListener {
             startActivity(Intent(this, ChatActivity::class.java))
-            overridePendingTransition(0, 0)
         }
         binding.menuActivity.setOnClickListener {
             startActivity(Intent(this, AktivitasActivity::class.java))
-            overridePendingTransition(0, 0)
         }
 
         // 3. Setup List Item (Coding, Makalah, dll)
@@ -136,7 +129,6 @@ class JokiOrderActivity : AppCompatActivity() {
 
 
             startActivity(intent)
-            overridePendingTransition(0, 0)
         }
     }
 }
