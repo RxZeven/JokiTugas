@@ -1,6 +1,7 @@
 package com.kelompok.jokitugas
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -15,23 +16,25 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
-import java.util.Date
+import com.google.firebase.storage.FirebaseStorage
+import java.util.UUID
+import com.bumptech.glide.Glide
 
 class ChatRoomActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityChatRoomBinding
     private lateinit var db: FirebaseFirestore
     private lateinit var auth: FirebaseAuth
+    private lateinit var storage: FirebaseStorage
     
     private var chatId: String = ""
     private var otherName: String = "Admin"
+    private var currentUserName: String = "User" // Tambahan untuk simpan nama
     private var listenerRegistration: ListenerRegistration? = null
 
-    // 1. LAUNCHER GALERI
     private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
-            Toast.makeText(this, "Fitur kirim gambar sedang dalam pengembangan", Toast.LENGTH_SHORT).show()
-            // addImageBubble(uri, isMe = true) // Nanti aktifkan kalau sudah ada Storage
+            uploadImageToStorage(uri)
         }
     }
 
@@ -42,28 +45,34 @@ class ChatRoomActivity : AppCompatActivity() {
 
         db = FirebaseFirestore.getInstance()
         auth = FirebaseAuth.getInstance()
+        storage = FirebaseStorage.getInstance()
         
-        // Ambil Data dari Intent
         otherName = intent.getStringExtra("EXTRA_NAME") ?: "Admin"
         val explicitChatId = intent.getStringExtra("EXTRA_CHAT_ID")
         
-        // Set Nama di Header
         binding.tvJockeyName.text = otherName
         
-        // Tentukan Chat ID
         if (explicitChatId != null) {
             chatId = explicitChatId
             listenToMessages()
         } else {
-            // Kalau tidak ada ID, cari atau buat chat baru (Logic sementara: pakai ID User sendiri sebagai 'Admin Chat')
             val uid = auth.currentUser?.uid
             if (uid != null) {
-                chatId = "chat_$uid" // Unik per user
+                chatId = "chat_$uid"
                 listenToMessages()
+                fetchCurrentUserName() // Ambil nama user sendiri buat disimpan
             }
         }
 
         setupUI()
+    }
+    
+    // Ambil nama user dari database users buat disave ke chat room
+    private fun fetchCurrentUserName() {
+        val uid = auth.currentUser?.uid ?: return
+        db.collection("users").document(uid).get().addOnSuccessListener {
+            currentUserName = it.getString("name") ?: "User"
+        }
     }
     
     override fun onDestroy() {
@@ -72,71 +81,91 @@ class ChatRoomActivity : AppCompatActivity() {
     }
 
     private fun setupUI() {
-        // Back Button
         binding.btnBack.setOnClickListener { finish() }
 
-        // Tombol Kirim Pesan
         binding.btnSend.setOnClickListener {
             val message = binding.etMessage.text.toString().trim()
             if (message.isNotEmpty()) {
-                sendMessage(message)
+                sendMessage(message, "text")
                 binding.etMessage.setText("")
             }
         }
 
-        // Tombol Tambah Foto
         binding.btnAddPhoto.setOnClickListener {
             pickImageLauncher.launch("image/*")
         }
     }
     
-    private fun sendMessage(messageText: String) {
+    private fun uploadImageToStorage(fileUri: Uri) {
+        val fileName = UUID.randomUUID().toString() + ".jpg"
+        val ref = storage.reference.child("chat_images/$fileName")
+
+        Toast.makeText(this, "Mengunggah gambar...", Toast.LENGTH_SHORT).show()
+
+        ref.putFile(fileUri)
+            .addOnSuccessListener {
+                ref.downloadUrl.addOnSuccessListener { uri ->
+                    val imageUrl = uri.toString()
+                    sendMessage(imageUrl, "image")
+                }
+            }
+            .addOnFailureListener {
+                Toast.makeText(this, "Gagal upload gambar: ${it.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun sendMessage(content: String, type: String) {
         val uid = auth.currentUser?.uid ?: return
         
         val messageMap = hashMapOf(
             "senderId" to uid,
-            "text" to messageText,
+            "text" to content,
+            "type" to type,
             "timestamp" to System.currentTimeMillis()
         )
         
-        // Simpan ke Sub-Collection "messages" di dalam Dokumen Chat Room
         db.collection("chats").document(chatId).collection("messages")
             .add(messageMap)
-            .addOnFailureListener {
-                Toast.makeText(this, "Gagal kirim pesan", Toast.LENGTH_SHORT).show()
-            }
             
-        // Update "Last Message" di Dokumen Induk (Agar list chat terupdate)
+        // UPDATE METADATA CHAT (Penting untuk Admin List)
+        val lastMsgPreview = if (type == "image") "📷 [Gambar]" else content
+        
+        // Kita simpan userName juga biar Admin tau ini chat dari siapa
         val chatMeta = hashMapOf(
-            "lastMessage" to messageText,
+            "lastMessage" to lastMsgPreview,
             "lastTime" to System.currentTimeMillis(),
-            "participants" to listOf(uid, "admin") // Contoh sederhana
+            "participants" to listOf(uid, "admin"),
+            "userName" to currentUserName // <-- INI YANG PENTING
         )
-        db.collection("chats").document(chatId).set(chatMeta) // Gunakan set/update
+        
+        // Gunakan set dengan Merge agar tidak menimpa data lain kalau ada
+        db.collection("chats").document(chatId).set(chatMeta, com.google.firebase.firestore.SetOptions.merge()) 
     }
 
     private fun listenToMessages() {
-        // Hapus chat dummy bawaan layout
         binding.containerChat.removeAllViews()
     
-        // Dengar pesan secara Real-time
         listenerRegistration = db.collection("chats").document(chatId).collection("messages")
             .orderBy("timestamp", Query.Direction.ASCENDING)
             .addSnapshotListener { snapshots, e ->
-                if (e != null) {
-                    return@addSnapshotListener
-                }
+                if (e != null) return@addSnapshotListener
 
                 if (snapshots != null) {
                     binding.containerChat.removeAllViews()
                     val currentUid = auth.currentUser?.uid
                     
                     for (doc in snapshots) {
-                        val text = doc.getString("text") ?: ""
+                        val content = doc.getString("text") ?: ""
                         val sender = doc.getString("senderId") ?: ""
+                        val type = doc.getString("type") ?: "text"
                         
                         val isMe = (sender == currentUid)
-                        addChatBubble(text, isMe)
+                        
+                        if (type == "image") {
+                            addImageBubble(content, isMe)
+                        } else {
+                            addChatBubble(content, isMe)
+                        }
                     }
                 }
             }
@@ -168,6 +197,47 @@ class ChatRoomActivity : AppCompatActivity() {
         textView.maxWidth = (resources.displayMetrics.widthPixels * 0.75).toInt()
 
         binding.containerChat.addView(textView)
+
+        binding.scrollViewChat.post {
+            binding.scrollViewChat.fullScroll(View.FOCUS_DOWN)
+        }
+    }
+    
+    private fun addImageBubble(imageUrl: String, isMe: Boolean) {
+        val cardView = androidx.cardview.widget.CardView(this)
+
+        val params = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+        params.bottomMargin = 16
+
+        if (isMe) {
+            params.gravity = Gravity.END 
+            cardView.setCardBackgroundColor(ContextCompat.getColor(this, R.color.app_primary)) 
+        } else {
+            params.gravity = Gravity.START 
+            cardView.setCardBackgroundColor(ContextCompat.getColor(this, R.color.white))
+        }
+
+        cardView.layoutParams = params
+        cardView.radius = 24f 
+        cardView.cardElevation = 0f
+        cardView.setContentPadding(4, 4, 4, 4)
+
+        val imageView = android.widget.ImageView(this)
+        
+        Glide.with(this)
+             .load(imageUrl)
+             .centerCrop()
+             .into(imageView)
+
+        val sizeInPx = (200 * resources.displayMetrics.density).toInt()
+        val imgParams = android.widget.FrameLayout.LayoutParams(sizeInPx, sizeInPx)
+        imageView.layoutParams = imgParams
+
+        cardView.addView(imageView)
+        binding.containerChat.addView(cardView)
 
         binding.scrollViewChat.post {
             binding.scrollViewChat.fullScroll(View.FOCUS_DOWN)
