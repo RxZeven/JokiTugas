@@ -40,6 +40,7 @@ class MainActivity : AppCompatActivity() {
         binding.menuActivity.setOnClickListener {
            val intent = Intent(this, AktivitasActivity::class.java)
             startActivity(intent)
+            overridePendingTransition(0, 0)
         }
 
 //        binding.menuHome.setOnClickListener {
@@ -49,6 +50,7 @@ class MainActivity : AppCompatActivity() {
         binding.menuChat.setOnClickListener {
             val intent = Intent(this, ChatActivity::class.java)
             startActivity(intent)
+            overridePendingTransition(0, 0)
         }
     }
 }

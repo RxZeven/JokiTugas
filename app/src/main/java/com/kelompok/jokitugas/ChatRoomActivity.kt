@@ -1,42 +1,41 @@
 package com.kelompok.jokitugas
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.kelompok.jokitugas.databinding.ActivityChatRoomBinding
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
-import com.google.firebase.storage.FirebaseStorage
-import java.util.UUID
-import com.bumptech.glide.Glide
+import com.google.ai.client.generativeai.GenerativeModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class ChatRoomActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityChatRoomBinding
     private lateinit var db: FirebaseFirestore
     private lateinit var auth: FirebaseAuth
-    private lateinit var storage: FirebaseStorage
     
     private var chatId: String = ""
     private var otherName: String = "Admin"
-    private var currentUserName: String = "User" // Tambahan untuk simpan nama
+    private var currentUserName: String = "User" 
     private var listenerRegistration: ListenerRegistration? = null
-
-    private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
-            uploadImageToStorage(uri)
-        }
-    }
+    
+    // AI Chatbot
+    private val generativeModel = GenerativeModel(
+        modelName = "gemini-1.5-flash", 
+        apiKey = "AIzaSyAwVymNGzryjxL9HYrLxKbxfO8d_AoQA1g" 
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,7 +44,6 @@ class ChatRoomActivity : AppCompatActivity() {
 
         db = FirebaseFirestore.getInstance()
         auth = FirebaseAuth.getInstance()
-        storage = FirebaseStorage.getInstance()
         
         otherName = intent.getStringExtra("EXTRA_NAME") ?: "Admin"
         val explicitChatId = intent.getStringExtra("EXTRA_CHAT_ID")
@@ -60,14 +58,13 @@ class ChatRoomActivity : AppCompatActivity() {
             if (uid != null) {
                 chatId = "chat_$uid"
                 listenToMessages()
-                fetchCurrentUserName() // Ambil nama user sendiri buat disimpan
+                fetchCurrentUserName() 
             }
         }
 
         setupUI()
     }
     
-    // Ambil nama user dari database users buat disave ke chat room
     private fun fetchCurrentUserName() {
         val uid = auth.currentUser?.uid ?: return
         db.collection("users").document(uid).get().addOnSuccessListener {
@@ -81,64 +78,90 @@ class ChatRoomActivity : AppCompatActivity() {
     }
 
     private fun setupUI() {
-        binding.btnBack.setOnClickListener { finish() }
+        binding.btnBack.setOnClickListener { 
+            finish()
+            overridePendingTransition(0, 0)
+        }
 
         binding.btnSend.setOnClickListener {
             val message = binding.etMessage.text.toString().trim()
             if (message.isNotEmpty()) {
-                sendMessage(message, "text")
+                sendMessage(message)
                 binding.etMessage.setText("")
+                
+                // Logic Sederhana: Setiap user kirim pesan, AI balas.
+                replyWithAI(message)
             }
         }
-
+        
+        // Tombol foto dihapus atau dibuat toast saja
         binding.btnAddPhoto.setOnClickListener {
-            pickImageLauncher.launch("image/*")
+            Toast.makeText(this, "Fitur kirim foto dinonaktifkan", Toast.LENGTH_SHORT).show()
         }
     }
     
-    private fun uploadImageToStorage(fileUri: Uri) {
-        val fileName = UUID.randomUUID().toString() + ".jpg"
-        val ref = storage.reference.child("chat_images/$fileName")
-
-        Toast.makeText(this, "Mengunggah gambar...", Toast.LENGTH_SHORT).show()
-
-        ref.putFile(fileUri)
-            .addOnSuccessListener {
-                ref.downloadUrl.addOnSuccessListener { uri ->
-                    val imageUrl = uri.toString()
-                    sendMessage(imageUrl, "image")
+    private fun replyWithAI(userMessage: String) {
+        lifecycleScope.launch {
+            try {
+                // Konteks Persona AI
+                val prompt = "Kamu adalah Admin Joki Tugas yang ramah dan profesional bernama Kang Coding. " +
+                        "Jawablah pertanyaan user ini dengan singkat dan membantu: \"$userMessage\""
+                
+                val response = withContext(Dispatchers.IO) {
+                    generativeModel.generateContent(prompt)
                 }
+                val aiReply = response.text ?: "Maaf, saya sedang sibuk. Mohon tunggu sebentar."
+                
+                // Simpan balasan AI ke Firestore seolah-olah itu pesan dari Admin
+                sendAdminMessage(aiReply)
+                
+            } catch (e: Exception) {
+                e.printStackTrace()
+                sendAdminMessage("Maaf, server AI sedang gangguan. Silakan tunggu admin manusia.")
             }
-            .addOnFailureListener {
-                Toast.makeText(this, "Gagal upload gambar: ${it.message}", Toast.LENGTH_SHORT).show()
-            }
+        }
+    }
+    
+    // Fungsi khusus untuk menyimpan pesan AI sebagai 'admin'
+    private fun sendAdminMessage(message: String) {
+        val messageMap = hashMapOf(
+            "senderId" to "admin_bot", // ID palsu untuk bot
+            "text" to message,
+            "type" to "text",
+            "timestamp" to System.currentTimeMillis() + 100 // Tambah dikit biar muncul setelah user
+        )
+        
+        db.collection("chats").document(chatId).collection("messages")
+            .add(messageMap)
+            
+         val chatMeta = hashMapOf(
+            "lastMessage" to message,
+            "lastTime" to System.currentTimeMillis(),
+            "participants" to listOf(auth.currentUser?.uid, "admin"),
+            "userName" to currentUserName 
+        )
+        db.collection("chats").document(chatId).set(chatMeta, com.google.firebase.firestore.SetOptions.merge())
     }
 
-    private fun sendMessage(content: String, type: String) {
+    private fun sendMessage(content: String) {
         val uid = auth.currentUser?.uid ?: return
         
         val messageMap = hashMapOf(
             "senderId" to uid,
             "text" to content,
-            "type" to type,
+            "type" to "text",
             "timestamp" to System.currentTimeMillis()
         )
         
         db.collection("chats").document(chatId).collection("messages")
             .add(messageMap)
             
-        // UPDATE METADATA CHAT (Penting untuk Admin List)
-        val lastMsgPreview = if (type == "image") "📷 [Gambar]" else content
-        
-        // Kita simpan userName juga biar Admin tau ini chat dari siapa
         val chatMeta = hashMapOf(
-            "lastMessage" to lastMsgPreview,
+            "lastMessage" to content,
             "lastTime" to System.currentTimeMillis(),
             "participants" to listOf(uid, "admin"),
-            "userName" to currentUserName // <-- INI YANG PENTING
+            "userName" to currentUserName 
         )
-        
-        // Gunakan set dengan Merge agar tidak menimpa data lain kalau ada
         db.collection("chats").document(chatId).set(chatMeta, com.google.firebase.firestore.SetOptions.merge()) 
     }
 
@@ -157,15 +180,14 @@ class ChatRoomActivity : AppCompatActivity() {
                     for (doc in snapshots) {
                         val content = doc.getString("text") ?: ""
                         val sender = doc.getString("senderId") ?: ""
+                        
+                        // Abaikan pesan tipe image jika ada sisa data lama
                         val type = doc.getString("type") ?: "text"
+                        if (type == "image") continue
                         
+                        // Cek apakah pesan dari saya atau dari (Admin / Bot)
                         val isMe = (sender == currentUid)
-                        
-                        if (type == "image") {
-                            addImageBubble(content, isMe)
-                        } else {
-                            addChatBubble(content, isMe)
-                        }
+                        addChatBubble(content, isMe)
                     }
                 }
             }
@@ -197,47 +219,6 @@ class ChatRoomActivity : AppCompatActivity() {
         textView.maxWidth = (resources.displayMetrics.widthPixels * 0.75).toInt()
 
         binding.containerChat.addView(textView)
-
-        binding.scrollViewChat.post {
-            binding.scrollViewChat.fullScroll(View.FOCUS_DOWN)
-        }
-    }
-    
-    private fun addImageBubble(imageUrl: String, isMe: Boolean) {
-        val cardView = androidx.cardview.widget.CardView(this)
-
-        val params = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
-        params.bottomMargin = 16
-
-        if (isMe) {
-            params.gravity = Gravity.END 
-            cardView.setCardBackgroundColor(ContextCompat.getColor(this, R.color.app_primary)) 
-        } else {
-            params.gravity = Gravity.START 
-            cardView.setCardBackgroundColor(ContextCompat.getColor(this, R.color.white))
-        }
-
-        cardView.layoutParams = params
-        cardView.radius = 24f 
-        cardView.cardElevation = 0f
-        cardView.setContentPadding(4, 4, 4, 4)
-
-        val imageView = android.widget.ImageView(this)
-        
-        Glide.with(this)
-             .load(imageUrl)
-             .centerCrop()
-             .into(imageView)
-
-        val sizeInPx = (200 * resources.displayMetrics.density).toInt()
-        val imgParams = android.widget.FrameLayout.LayoutParams(sizeInPx, sizeInPx)
-        imageView.layoutParams = imgParams
-
-        cardView.addView(imageView)
-        binding.containerChat.addView(cardView)
 
         binding.scrollViewChat.post {
             binding.scrollViewChat.fullScroll(View.FOCUS_DOWN)

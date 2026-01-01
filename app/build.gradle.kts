@@ -71,4 +71,6 @@ dependencies {
 
     // gmaps versi gratisan
     implementation("org.osmdroid:osmdroid-android:6.1.16")
+
+
 }

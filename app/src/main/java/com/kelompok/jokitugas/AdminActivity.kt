@@ -39,6 +39,7 @@ class AdminActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        // Hentikan listener saat aplikasi tidak aktif agar hemat kuota/baterai
         snapshotListener?.remove()
     }
 
@@ -51,14 +52,10 @@ class AdminActivity : AppCompatActivity() {
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
         }
-        
-        // Tombol Buka Chat
-        binding.btnOpenChat.setOnClickListener {
-            startActivity(Intent(this, AdminChatListActivity::class.java))
-        }
     }
 
     private fun listenToOrders() {
+        // Gunakan addSnapshotListener untuk Real-Time Updates
         snapshotListener = db.collection("orders")
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshots, e ->
@@ -94,9 +91,11 @@ class AdminActivity : AppCompatActivity() {
                             status = status
                         )
 
+                        // PILAH BERDASARKAN STATUS
                         if (status == "Selesai" || status == "Dibatalkan") {
                             addAdminOrderCard(order, binding.containerHistory, isHistory = true)
                         } else {
+                            // Status: Diproses, Dikerjakan
                             addAdminOrderCard(order, binding.containerActive, isHistory = false)
                         }
                     }
@@ -124,15 +123,16 @@ class AdminActivity : AppCompatActivity() {
         tvPrice.text = order.price
         tvStatus.text = order.status
 
+        // Warnai status agar lebih jelas
         when (order.status) {
-            "Selesai" -> tvStatus.setBackgroundColor(0xFF4CAF50.toInt()) 
-            "Dibatalkan" -> tvStatus.setBackgroundColor(0xFFF44336.toInt()) 
-            "Dikerjakan" -> tvStatus.setBackgroundColor(0xFF2196F3.toInt()) 
-            else -> tvStatus.setBackgroundColor(0xFFFF9800.toInt()) 
+            "Selesai" -> tvStatus.setBackgroundColor(0xFF4CAF50.toInt()) // Hijau
+            "Dibatalkan" -> tvStatus.setBackgroundColor(0xFFF44336.toInt()) // Merah
+            "Dikerjakan" -> tvStatus.setBackgroundColor(0xFF2196F3.toInt()) // Biru
+            else -> tvStatus.setBackgroundColor(0xFFFF9800.toInt()) // Orange (Diproses)
         }
 
         if (isHistory) {
-            btnDetail.visibility = View.GONE 
+            btnDetail.visibility = View.GONE // Hilangkan tombol update jika sudah selesai
         } else {
             btnDetail.text = "Update Status"
             btnDetail.setOnClickListener {
@@ -156,6 +156,7 @@ class AdminActivity : AppCompatActivity() {
     }
 
     private fun updateOrderStatus(orderId: String, newStatus: String) {
+        // Tidak perlu panggil listenToOrders() lagi karena otomatis update via SnapshotListener
         db.collection("orders").document(orderId)
             .update("status", newStatus)
             .addOnSuccessListener {
