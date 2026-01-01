@@ -178,6 +178,54 @@
                     android:fontFamily="sans-serif"/>
             </androidx.cardview.widget.CardView>
 
+            <!-- KODE PROMO SECTION -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="Kode Promo / Voucher"
+                android:textColor="@color/text_primary"
+                android:textStyle="bold"
+                android:textSize="16sp"/>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    app:boxCornerRadiusBottomEnd="8dp"
+                    app:boxCornerRadiusBottomStart="8dp"
+                    app:boxCornerRadiusTopEnd="8dp"
+                    app:boxCornerRadiusTopStart="8dp"
+                    app:boxStrokeWidth="0dp"
+                    app:hintEnabled="false">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etPromoCode"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_search_bar"
+                        android:hint="Masukkan kode promo"
+                        android:padding="12dp"
+                        android:textSize="14sp"
+                        android:textAllCaps="true"/>
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnApplyPromo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="Pakai"
+                    android:backgroundTint="@color/app_primary"
+                    app:cornerRadius="8dp"/>
+            </LinearLayout>
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -210,6 +258,27 @@
                         android:textColor="@color/white"
                         android:textSize="32sp"
                         android:textStyle="bold"/>
+                    
+                    <TextView
+                        android:id="@+id/tvOriginalPrice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Rp 500.000"
+                        android:textColor="#CCFFFFFF"
+                        android:textSize="14sp"
+                        android:visibility="gone"
+                        android:layout_marginTop="2dp"/>
+                        
+                    <TextView
+                        android:id="@+id/tvDiscountInfo"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Hemat Rp 50.000"
+                        android:textColor="#81C784"
+                        android:textStyle="bold"
+                        android:textSize="14sp"
+                        android:visibility="gone"
+                        android:layout_marginTop="2dp"/>
 
                     <TextView
                         android:layout_width="wrap_content"

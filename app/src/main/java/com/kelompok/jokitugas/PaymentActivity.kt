@@ -26,6 +26,9 @@ class PaymentActivity : AppCompatActivity() {
     private lateinit var db: FirebaseFirestore
     private lateinit var auth: FirebaseAuth
 
+    private var currentTotalPrice: Int = 0
+    private var discountAmount: Int = 0
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityPaymentBinding.inflate(layoutInflater)
@@ -36,14 +39,13 @@ class PaymentActivity : AppCompatActivity() {
 
         // 1. Ambil Data dari Intent
         val serviceName = intent.getStringExtra("EXTRA_SERVICE") ?: "-"
-        val specsString = intent.getStringExtra("EXTRA_SPECS") ?: "-" // "Python, Web"
+        val specsString = intent.getStringExtra("EXTRA_SPECS") ?: "-" 
         val notesString = intent.getStringExtra("EXTRA_NOTES") ?: "-"
-        val deadlineString = intent.getStringExtra("EXTRA_DEADLINE") ?: "" // "15 Desember 2025"
+        val deadlineString = intent.getStringExtra("EXTRA_DEADLINE") ?: "" 
 
         // 2. Tampilkan Data Mentah
         binding.tvServiceName.text = serviceName
 
-        // Format tampilan spesifikasi agar berbaris ke bawah (ganti koma dengan enter)
         val formattedSpecs = specsString.replace(", ", "\n• ")
         binding.tvSpecs.text = "• $formattedSpecs"
 
@@ -58,30 +60,42 @@ class PaymentActivity : AppCompatActivity() {
     private fun calculatePrice(specsString: String, deadlineString: String) {
         val pricePerDayPerSpec = 150000
 
-        // A. Hitung Jumlah Spesifikasi
-        // Kita pecah string berdasarkan koma, lalu hitung jumlahnya
-        // Contoh: "Python, Web" -> size = 2
         val specsCount = if (specsString.isBlank()) 0 else specsString.split(",").size
-
-        // B. Hitung Jumlah Hari (Deadline - Hari Ini)
         val daysCount = calculateDaysDiff(deadlineString)
 
-        // C. Rumus Total
-        val totalPrice = specsCount * daysCount * pricePerDayPerSpec
+        // Rumus Total Awal
+        currentTotalPrice = specsCount * daysCount * pricePerDayPerSpec
 
-        // Tampilkan ke UI
-        binding.tvTotalPrice.text = formatRupiah(totalPrice)
+        updatePriceUI()
         binding.tvDateInfo.text = "Durasi: $daysCount Hari kerja\n(Deadline: $deadlineString)"
     }
 
+    private fun updatePriceUI() {
+        val finalPrice = if ((currentTotalPrice - discountAmount) < 0) 0 else (currentTotalPrice - discountAmount)
+        binding.tvTotalPrice.text = formatRupiah(finalPrice)
+        
+        if (discountAmount > 0) {
+            binding.tvOriginalPrice.visibility = View.VISIBLE
+            binding.tvDiscountInfo.visibility = View.VISIBLE
+            
+            // Coret harga asli
+            binding.tvOriginalPrice.text = formatRupiah(currentTotalPrice)
+            binding.tvOriginalPrice.paintFlags = binding.tvOriginalPrice.paintFlags or android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
+            
+            binding.tvDiscountInfo.text = "Hemat ${formatRupiah(discountAmount)}"
+        } else {
+             binding.tvOriginalPrice.visibility = View.GONE
+             binding.tvDiscountInfo.visibility = View.GONE
+        }
+    }
+
     private fun calculateDaysDiff(deadlineString: String): Int {
-        if (deadlineString.isEmpty()) return 1 // Minimal 1 hari
+        if (deadlineString.isEmpty()) return 1 
 
         try {
             val format = SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID"))
             val deadlineDate = format.parse(deadlineString) ?: Date()
 
-            // Set jam hari ini ke 00:00:00 agar hitungannya akurat per hari
             val todayCalendar = Calendar.getInstance()
             todayCalendar.set(Calendar.HOUR_OF_DAY, 0)
             todayCalendar.set(Calendar.MINUTE, 0)
@@ -89,72 +103,73 @@ class PaymentActivity : AppCompatActivity() {
             todayCalendar.set(Calendar.MILLISECOND, 0)
             val todayDate = todayCalendar.time
 
-            // Hitung selisih waktu dalam milidetik
             val diffInMillis = deadlineDate.time - todayDate.time
-
-            // Ubah milidetik ke Hari
             val days = TimeUnit.DAYS.convert(diffInMillis, TimeUnit.MILLISECONDS).toInt()
 
-            // Jika hari H (0 hari) atau minus, anggap minimal 1 hari kerja
             return if (days < 1) 1 else days
 
         } catch (e: Exception) {
             e.printStackTrace()
-            return 1 // Default error
+            return 1 
         }
     }
 
-    // Fungsi bikin format Rp yang cantik (Rp 150.000)
     private fun formatRupiah(number: Int): String {
         val localeID = Locale("in", "ID")
         val numberFormat = NumberFormat.getCurrencyInstance(localeID)
-        // Hilangkan desimal ,00 di belakang biar rapi
         numberFormat.maximumFractionDigits = 0
         return numberFormat.format(number)
     }
 
     private fun setupListeners() {
         binding.btnBack.setOnClickListener { finish() }
+        
+        // --- LOGIKA KODE PROMO ---
+        binding.btnApplyPromo.setOnClickListener {
+            val code = binding.etPromoCode.text.toString().trim()
+            if (code.isNotEmpty()) {
+                val discount = PromoManager.checkPromo(code, currentTotalPrice)
+                if (discount > 0) {
+                    discountAmount = discount
+                    updatePriceUI()
+                    
+                    val detail = PromoManager.getPromoDetails(code)
+                    Toast.makeText(this, "Promo Berhasil: ${detail?.description}", Toast.LENGTH_SHORT).show()
+                    binding.etPromoCode.isEnabled = false // Kunci input
+                    binding.btnApplyPromo.isEnabled = false
+                    binding.btnApplyPromo.text = "Terpakai"
+                } else {
+                    Toast.makeText(this, "Kode promo tidak valid atau tidak memenuhi syarat", Toast.LENGTH_SHORT).show()
+                    discountAmount = 0
+                    updatePriceUI()
+                }
+            }
+        }
 
         // === LOGIKA ANIMASI PEMBAYARAN ===
         binding.btnConfirmPay.setOnClickListener {
-            // 1. Disable tombol agar tidak diklik double
             binding.btnConfirmPay.isEnabled = false
             binding.btnConfirmPay.text = "Memproses..."
 
-            // Mulai Rantai Animasi
             startSuccessAnimation()
 
-            // Tombol di dalam Dialog Sukses
             binding.btnFinishOrder.setOnClickListener {
-                // 1. AMBIL DATA DARI LAYAR
                 val service = binding.tvServiceName.text.toString()
                 val deadlineInfo = binding.tvDateInfo.text.toString()
-                val price = binding.tvTotalPrice.text.toString() // Ambil "Rp 450.000"
+                val finalPrice = binding.tvTotalPrice.text.toString() 
                 val notes = binding.tvNotes.text.toString()
-                val specs = binding.tvSpecs.text.toString() // Ambil "Fitur Lengkap..."
+                val specs = binding.tvSpecs.text.toString() 
                 
                 val orderId = UUID.randomUUID().toString()
-                val paymentId = "PAY-${UUID.randomUUID()}" // ID Khusus Pembayaran
+                val paymentId = "PAY-${UUID.randomUUID()}" 
                 val userId = auth.currentUser?.uid ?: "guest"
                 val currentTime = System.currentTimeMillis()
 
-                // 2. SIMPAN KE DATABASE SEMENTARA (Agar muncul di list lokal)
-                val newOrder = OrderModel(
-                    id = orderId,
-                    serviceName = service,
-                    deadline = deadlineInfo,
-                    price = price,
-                    status = "Diproses"
-                )
-                DummyData.orderHistory.add(newOrder)
-
-                // 3. DATA PESANAN (ORDER)
                 val orderMap = hashMapOf(
                     "id" to orderId,
                     "serviceTitle" to service, 
                     "deadline" to deadlineInfo,
-                    "price" to price,
+                    "price" to finalPrice,
                     "status" to "Diproses",
                     "notes" to notes,
                     "specs" to specs, 
@@ -163,22 +178,21 @@ class PaymentActivity : AppCompatActivity() {
                     "createdAt" to currentTime
                 )
 
-                // 4. DATA PEMBAYARAN / STRUK (PAYMENT) - DIPISAH SESUAI PERMINTAAN
                 val paymentMap = hashMapOf(
                     "paymentId" to paymentId,
-                    "orderId" to orderId, // Relasi ke pesanan
+                    "orderId" to orderId, 
                     "userId" to userId,
-                    "amount" to price,
+                    "amount" to finalPrice,
                     "paymentMethod" to "QRIS / Transfer",
                     "transactionDate" to currentTime,
-                    "status" to "LUNAS", // Status pembayaran
-                    "details" to "$service ($specs)" // Ringkasan apa yang dibayar
+                    "status" to "LUNAS", 
+                    "details" to "$service ($specs)",
+                    "promoUsed" to binding.etPromoCode.text.toString()
                 )
                 
                 binding.btnFinishOrder.isEnabled = false
                 binding.btnFinishOrder.text = "Menyimpan..."
 
-                // Batch Write: Simpan ke dua koleksi sekaligus
                 val batch = db.batch()
                 
                 val orderRef = db.collection("orders").document(orderId)
@@ -189,7 +203,6 @@ class PaymentActivity : AppCompatActivity() {
 
                 batch.commit()
                     .addOnSuccessListener {
-                        // 5. PINDAH KE MAIN ACTIVITY
                         val intent = Intent(this, MainActivity::class.java)
                         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                         startActivity(intent)
@@ -209,31 +222,24 @@ class PaymentActivity : AppCompatActivity() {
         val dialog = binding.successDialogContainer
         val fadeLayer = binding.fadeLayer
 
-        // --- TAHAP PERSIAPAN ---
-        // Hitung posisi awal (di luar layar bawah)
         val screenHeight = resources.displayMetrics.heightPixels.toFloat()
-        ball.translationY = screenHeight / 2 + 200f // Pindahkan jauh ke bawah
+        ball.translationY = screenHeight / 2 + 200f 
         ball.scaleX = 1f
         ball.scaleY = 1f
         ball.visibility = View.VISIBLE
 
-        // Tampilkan layer gelap
         fadeLayer.visibility = View.VISIBLE
         fadeLayer.alpha = 0f
         fadeLayer.animate().alpha(1f).setDuration(300).start()
 
-
-        // --- TAHAP 1: BOLA NAIK KE TENGAH ---
         ball.animate()
-            .translationY(0f) // Kembali ke posisi tengah (sesuai constraint di XML)
+            .translationY(0f) 
             .setDuration(500)
-            .setInterpolator(OvershootInterpolator(1.5f)) // Efek membal sedikit saat sampai tengah
+            .setInterpolator(OvershootInterpolator(1.5f)) 
             .setListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
                     super.onAnimationEnd(animation)
 
-                    // --- TAHAP 2: BOLA MEMBESAR (MELEDAK) ---
-                    // Skala diperbesar sampai menutupi layar (misal 30x lipat)
                     ball.animate()
                         .scaleX(30f)
                         .scaleY(30f)
@@ -241,8 +247,7 @@ class PaymentActivity : AppCompatActivity() {
                         .setInterpolator(AccelerateDecelerateInterpolator())
                         .setListener(object : AnimatorListenerAdapter() {
                             override fun onAnimationEnd(animation: Animator) {
-                                // --- TAHAP 3: TAMPILKAN DIALOG ---
-                                ball.visibility = View.GONE // Sembunyikan bola raksasa
+                                ball.visibility = View.GONE 
                                 showSuccessDialog(dialog)
                             }
                         })
@@ -254,7 +259,6 @@ class PaymentActivity : AppCompatActivity() {
 
     private fun showSuccessDialog(dialogView: View) {
         dialogView.visibility = View.VISIBLE
-        // Efek pop-up (muncul dari kecil ke ukuran normal)
         dialogView.scaleX = 0.7f
         dialogView.scaleY = 0.7f
         dialogView.alpha = 0f

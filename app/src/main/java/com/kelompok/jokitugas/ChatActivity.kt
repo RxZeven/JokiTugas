@@ -8,23 +8,26 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import com.kelompok.jokitugas.databinding.ActivityChatBinding
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 
 class ChatActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityChatBinding
+    private lateinit var db: FirebaseFirestore
+    private lateinit var auth: FirebaseAuth
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityChatBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        setupListeners()
+        db = FirebaseFirestore.getInstance()
+        auth = FirebaseAuth.getInstance()
 
-        // Tambahkan Data Dummy
-        addChatHistory("Kang Coding", "Siap kak, sedang dikerjakan ya.", "10:30", 2)
-        addChatHistory("Jasa Makalah Express", "File bab 1 sudah saya kirim ke email.", "Kemarin", 0)
-        addChatHistory("Admin Skripsi", "Halo, untuk revisi bab 4 bagaimana?", "08/12", 5)
-        addChatHistory("Customer Service", "Selamat datang di aplikasi Joki App!", "01/12", 0)
+        setupListeners()
+        loadChatRooms()
     }
 
     private fun setupListeners() {
@@ -49,10 +52,30 @@ class ChatActivity : AppCompatActivity() {
             overridePendingTransition(0, 0)
             finish()
         }
-        // menuChat tidak perlu listener karena kita sedang di halaman Chat
+        
+        // FAB untuk New Chat (Manual trigger chat dengan Admin)
+        binding.fabNewChat.setOnClickListener {
+             // Langsung buka chat room umum (Admin Utama)
+             val intent = Intent(this, ChatRoomActivity::class.java)
+             intent.putExtra("EXTRA_CHAT_ID", "admin_chat") 
+             intent.putExtra("EXTRA_NAME", "Admin Utama")
+             startActivity(intent)
+        }
     }
 
-    private fun addChatHistory(name: String, message: String, time: String, unreadCount: Int) {
+    private fun loadChatRooms() {
+        binding.containerChatHistory.removeAllViews()
+        val currentUserId = auth.currentUser?.uid ?: return
+
+        // Query cari room chat di mana user ini terlibat
+        // Struktur Firestore ideal: collection("chat_rooms").whereArrayContains("participants", uid)
+        // Tapi untuk simpelnya, kita buat 1 room default Admin dulu.
+
+        // Tampilkan 1 Chat Default: Admin Support
+        addChatHistory("Admin Joki Tugas", "Halo, ada yang bisa dibantu?", "Sekarang", 0, "admin_chat")
+    }
+
+    private fun addChatHistory(name: String, message: String, time: String, unreadCount: Int, chatId: String) {
         val itemView = LayoutInflater.from(this).inflate(R.layout.item_chat_history, binding.containerChatHistory, false)
 
         val tvName = itemView.findViewById<TextView>(R.id.tvName)
@@ -70,17 +93,16 @@ class ChatActivity : AppCompatActivity() {
         if (unreadCount > 0) {
             badgeContainer.visibility = View.VISIBLE
             tvCount.text = unreadCount.toString()
-            // Bold nama dan pesan kalau belum dibaca
             tvMessage.setTextColor(resources.getColor(R.color.app_primary, null))
         } else {
             badgeContainer.visibility = View.GONE
         }
 
-        // Klik Item -> Buka Room Chat
+        // Klik Item -> Buka Room Chat Real
         itemView.setOnClickListener {
             val intent = Intent(this, ChatRoomActivity::class.java)
-            // Nanti bisa kirim nama penjoki lewat intent biar dinamis
-            // intent.putExtra("EXTRA_NAME", name)
+            intent.putExtra("EXTRA_CHAT_ID", chatId) 
+            intent.putExtra("EXTRA_NAME", name)
             startActivity(intent)
         }
 

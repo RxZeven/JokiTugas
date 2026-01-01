@@ -25,7 +25,6 @@
             app:cardBackgroundColor="@color/app_primary"
             app:cardCornerRadius="25dp"
             app:cardElevation="0dp">
-
             <ImageView
                 android:layout_width="30dp"
                 android:layout_height="30dp"
@@ -38,20 +37,19 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Detail Pesanan"
+            android:text="Detail Order"
             android:textColor="@color/text_primary"
             android:textSize="20sp"
             android:textStyle="bold" />
 
         <androidx.cardview.widget.CardView
+            android:id="@+id/ivProfile"
             android:layout_width="50dp"
             android:layout_height="50dp"
             app:cardBackgroundColor="@color/app_primary"
             app:cardCornerRadius="25dp"
             app:cardElevation="0dp">
-
             <ImageView
-                android:id="@+id/ivProfile"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_gravity="center"
@@ -67,7 +65,6 @@
         app:layout_constraintBottom_toTopOf="@id/bottomNavContainer"
         app:layout_constraintTop_toBottomOf="@id/headerContainer">
 
-<!--        -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -76,108 +73,111 @@
 
             <TextView
                 android:id="@+id/tvServiceTitle"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Nama Layanan"
+                android:text="Joki Coding"
                 android:textColor="@color/text_primary"
-                android:textSize="28sp"
+                android:textSize="22sp"
                 android:textStyle="bold" />
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginVertical="16dp"
-                android:background="#E0E0E0"/>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Pilih Spesifikasi (Bisa lebih dari 1)"
+                android:layout_marginTop="16dp"
+                android:text="Pilih Spesifikasi / Bahasa:"
                 android:textColor="@color/text_primary"
-                android:textStyle="bold"
-                android:textSize="16sp"/>
+                android:textStyle="bold" />
 
+            <!-- CONTAINER CHECKBOX DINAMIS -->
             <LinearLayout
                 android:id="@+id/containerOptions"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginTop="8dp">
+                android:layout_marginTop="8dp"
+                android:orientation="vertical">
+                <!-- Checkbox akan ditambahkan lewat Kodingan (DetailOrderActivity.kt) -->
             </LinearLayout>
+
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
-                android:text="Catatan Tambahan"
+                android:text="Catatan Tambahan (Opsional):"
                 android:textColor="@color/text_primary"
-                android:textStyle="bold"
-                android:textSize="16sp"/>
+                android:textStyle="bold" />
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilNotes"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                app:boxStrokeColor="@color/app_primary"
-                app:hintTextColor="@color/app_primary">
+                app:boxCornerRadiusBottomEnd="12dp"
+                app:boxCornerRadiusBottomStart="12dp"
+                app:boxCornerRadiusTopEnd="12dp"
+                app:boxCornerRadiusTopStart="12dp"
+                app:boxStrokeWidth="0dp"
+                app:boxStrokeWidthFocused="0dp"
+                app:hintEnabled="false">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etNotes"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="Contoh: Deadline jam 12 siang, minta file PDF..."
+                    android:layout_height="120dp"
+                    android:background="@drawable/bg_search_bar"
+                    android:gravity="top|start"
+                    android:hint="Tulis detail tugasmu di sini..."
                     android:inputType="textMultiLine"
-                    android:lines="3"
-                    android:gravity="top|start"/>
+                    android:padding="16dp" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
-                android:text="Pilih Deadline"
+                android:text="Deadline Pengerjaan:"
                 android:textColor="@color/text_primary"
-                android:textStyle="bold"
-                android:textSize="16sp"/>
+                android:textStyle="bold" />
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilDeadline"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                app:boxStrokeColor="@color/app_primary"
+                app:boxCornerRadiusBottomEnd="12dp"
+                app:boxCornerRadiusBottomStart="12dp"
+                app:boxCornerRadiusTopEnd="12dp"
+                app:boxCornerRadiusTopStart="12dp"
+                app:boxStrokeWidth="0dp"
+                app:boxStrokeWidthFocused="0dp"
                 app:endIconDrawable="@drawable/ic_calendar"
-                app:endIconTint="@color/text_secondary"
-                app:endIconMode="custom">
+                app:endIconMode="custom"
+                app:endIconTint="@color/app_primary"
+                app:hintEnabled="false">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etDeadline"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:background="@drawable/bg_search_bar"
                     android:clickable="true"
                     android:focusable="false"
-                    android:hint="Klik untuk pilih tanggal"
-                    android:inputType="none" />
+                    android:hint="Pilih Tanggal"
+                    android:padding="16dp" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnOrderNow"
                 android:layout_width="match_parent"
                 android:layout_height="60dp"
-                android:layout_marginTop="40dp"
+                android:layout_marginTop="32dp"
+                android:text="Lanjut Pembayaran"
                 android:backgroundTint="@color/app_primary"
-                android:text="Buat Pesanan"
                 android:textAllCaps="false"
-                android:textColor="@color/white"
-                android:textSize="18sp"
-                android:textStyle="bold"
+                android:textSize="16sp"
                 app:cornerRadius="12dp" />
 
         </LinearLayout>
-<!--        -->
     </androidx.core.widget.NestedScrollView>
 
     <LinearLayout
@@ -270,6 +270,7 @@
                 android:textColor="@color/white"
                 android:textSize="12sp" />
         </LinearLayout>
+
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
