@@ -22,17 +22,20 @@ class MainActivity : AppCompatActivity() {
         // Klik Profil
         binding.ivProfile.setOnClickListener {
             startActivity(Intent(this, ProfileActivity::class.java))
+            overridePendingTransition(0, 0)
         }
 
         // Klik Tombol Promo
         binding.cardPromo.setOnClickListener {
             startActivity(Intent(this, PromoDetailActivity::class.java))
+            overridePendingTransition(0, 0)
         }
 
         // Klik Tombol Detail Pesanan Joki
         binding.btnDetailJoki.setOnClickListener {
             val intent = Intent (this, JokiOrderActivity::class.java)
             startActivity(intent)
+            overridePendingTransition(0, 0)
         }
 
         // --- Bottom Navigation Logic ---

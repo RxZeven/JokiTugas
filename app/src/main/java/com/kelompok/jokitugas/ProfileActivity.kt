@@ -41,6 +41,7 @@ class ProfileActivity : AppCompatActivity() {
         // --- BUTTON LISTENERS ---
         binding.btnBack.setOnClickListener {
             finish()
+            overridePendingTransition(0, 0)
         }
 
         binding.btnLogout.setOnClickListener {
@@ -55,20 +56,24 @@ class ProfileActivity : AppCompatActivity() {
             val intent = Intent(this, LoginActivity::class.java)
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             startActivity(intent)
+            overridePendingTransition(0, 0)
             finish()
         }
 
         // --- BOTTOM NAVIGATION ---
         binding.menuHome.setOnClickListener {
             startActivity(Intent(this, MainActivity::class.java))
+            overridePendingTransition(0, 0)
             finish()
         }
         binding.menuActivity.setOnClickListener {
             startActivity(Intent(this, AktivitasActivity::class.java))
+            overridePendingTransition(0, 0)
             finish()
         }
         binding.menuChat.setOnClickListener {
             startActivity(Intent(this, ChatActivity::class.java))
+            overridePendingTransition(0, 0)
             finish()
         }
     }
